@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Kanban Board</title>
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --light-blue: #eff6ff;
+            --bg-gray: #f8fafc;
+            --text-dark: #1e293b;
+            --border-color: #cbd5e1;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-gray);
+            color: var(--text-dark);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--primary-blue);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .btn-add-column {
+            background-color: var(--secondary-blue);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .btn-add-column:hover {
+            background-color: #2563eb;
+        }
+
+        /* Kanban Container */
+        #kanban-board {
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            overflow-x: auto;
+            flex-grow: 1;
+            align-items: flex-start;
+        }
+
+        /* Column Styling */
+        .column {
+            background-color: #ebf1f5;
+            min-width: 300px;
+            max-width: 300px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            max-height: 100%;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        .column-header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            border-radius: 8px 8px 0 0;
+            border-bottom: 2px solid var(--light-blue);
+        }
+
+        .column-header h2 {
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--primary-blue);
+        }
+
+        .delete-col {
+            color: #94a3b8;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 1.2rem;
+        }
+
+        .delete-col:hover { color: #ef4444; }
+
+        /* Task List Area */
+        .task-list {
+            padding: 10px;
+            flex-grow: 1;
+            min-height: 50px;
+            overflow-y: auto;
+        }
+
+        /* Task Styling */
+        .task {
+            background-color: white;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: grab;
+            border-left: 4px solid var(--secondary-blue);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .task:active { cursor: grabbing; }
+
+        .task-content {
+            flex-grow: 1;
+            word-wrap: break-word;
+            margin-right: 10px;
+            font-size: 0.95rem;
+        }
+
+        .delete-task {
+            background: none;
+            border: none;
+            color: #cbd5e1;
+            cursor: pointer;
+        }
+
+        .delete-task:hover { color: #ef4444; }
+
+        /* Add Task Form */
+        .add-task-container {
+            padding: 10px;
+        }
+
+        .add-task-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+
+        .btn-save-task {
+            width: 100%;
+            background-color: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 6px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* Drag and Drop Over State */
+        .column.drag-over {
+            background-color: #dbeafe;
+            border: 2px dashed var(--secondary-blue);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Project Workspace</h1>
+        <button class="btn-add-column" onclick="addColumn()">+ New Column</button>
+    </header>
+
+    <div id="kanban-board">
+        </div>
+
+    <script>
+        let boardData = JSON.parse(localStorage.getItem('kanbanData')) || [
+            { id: 1, title: 'To Do', tasks: ['Project Setup', 'Initial Draft'] },
+            { id: 2, title: 'In Progress', tasks: ['Development'] },
+            { id: 3, title: 'Review', tasks: [] }
+        ];
+
+        const board = document.getElementById('kanban-board');
+
+        function init() {
+            renderBoard();
+        }
+
+        function renderBoard() {
+            board.innerHTML = '';
+            boardData.forEach((col, colIndex) => {
+                const colDiv = document.createElement('div');
+                colDiv.className = 'column';
+                colDiv.dataset.index = colIndex;
+                
+                // Drag and drop listeners for columns
+                colDiv.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    colDiv.classList.add('drag-over');
+                });
+                colDiv.addEventListener('dragleave', () => colDiv.classList.remove('drag-over'));
+                colDiv.addEventListener('drop', e => handleDrop(e, colIndex));
+
+                colDiv.innerHTML = `
+                    <div class="column-header">
+                        <h2>${col.title}</h2>
+                        <button class="delete-col" onclick="deleteColumn(${colIndex})">&times;</button>
+                    </div>
+                    <div class="task-list">
+                        ${col.tasks.map((task, taskIndex) => `
+                            <div class="task" draggable="true" ondragstart="handleDragStart(event, ${colIndex}, ${taskIndex})">
+                                <div class="task-content">${task}</div>
+                                <button class="delete-task" onclick="deleteTask(${colIndex}, ${taskIndex})">🗑</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="add-task-container">
+                        <input type="text" class="add-task-input" placeholder="New task..." id="input-${colIndex}">
+                        <button class="btn-save-task" onclick="addTask(${colIndex})">Add Task</button>
+                    </div>
+                `;
+                board.appendChild(colDiv);
+            });
+            saveData();
+        }
+
+        function addColumn() {
+            const title = prompt("Enter Column Name:");
+            if (title) {
+                boardData.push({ id: Date.now(), title, tasks: [] });
+                renderBoard();
+            }
+        }
+
+        function deleteColumn(index) {
+            if(confirm("Delete this column and all its tasks?")) {
+                boardData.splice(index, 1);
+                renderBoard();
+            }
+        }
+
+        function addTask(colIndex) {
+            const input = document.getElementById(`input-${colIndex}`);
+            if (input.value.trim() !== '') {
+                boardData[colIndex].tasks.push(input.value.trim());
+                input.value = '';
+                renderBoard();
+            }
+        }
+
+        function deleteTask(colIndex, taskIndex) {
+            boardData[colIndex].tasks.splice(taskIndex, 1);
+            renderBoard();
+        }
+
+        // Drag and Drop Logic
+        let draggedTask = null;
+
+        function handleDragStart(e, colIndex, taskIndex) {
+            draggedTask = { colIndex, taskIndex };
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDrop(e, targetColIndex) {
+            e.preventDefault();
+            const colDivs = document.querySelectorAll('.column');
+            colDivs.forEach(c => c.classList.remove('drag-over'));
+
+            if (draggedTask) {
+                const taskContent = boardData[draggedTask.colIndex].tasks.splice(draggedTask.taskIndex, 1)[0];
+                boardData[targetColIndex].tasks.push(taskContent);
+                draggedTask = null;
+                renderBoard();
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('kanbanData', JSON.stringify(boardData));
+        }
+
+        init();
+    </script>
+</body>
+</html>
